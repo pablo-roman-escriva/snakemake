@@ -1,0 +1,7 @@
+.snakemake/
+input/
+logs/
+postqc/
+preqc/
+scripts/
+dag.pdf

@@ -1,0 +1,8 @@
+nanofilt:
+  minlen: 1200 
+  maxlen: 1800
+  quality: 0
+
+yacrd: 
+  coverage: 4
+  minimal_coverage: 0.4
