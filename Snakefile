@@ -9,7 +9,9 @@ rule all:
         expand("preqc/{id}_fastqc.html", id=samples),
         expand("postqc/{id}_nanostat.txt", id=samples),
         expand("postqc/{id}_fastqc.html", id=samples),
-        "output/formated_emu_table_combined_counts.tsv"
+        expand("rel-abundances/{id}_qc_rel-abundance.tsv", id=samples),
+        "output/formated_emu_table_combined_counts.tsv",
+        "output/krona_composition_samples.html"
     threads: 
         workflow.cores
 
@@ -143,13 +145,17 @@ rule combine_outputs:
     log:
         "logs/combine_outputs.log"
     shell:
-        "emu combine-outputs output tax_id --counts > {log}"
+        """
+        emu combine-outputs rel-abundances tax_id --counts > {log}
+        mv rel-abundances/emu-combined-tax_id-counts.tsv output/emu-combined-tax_id-counts.tsv
+        """
 
 rule counts_krona:
     input:
         "output/emu-combined-tax_id-counts.tsv"
     output:
-        "output/formated_emu_table_combined_counts.tsv"
+        "output/formated_emu_table_combined_counts.tsv",
+        "output/krona_composition_samples.html"
     log:
         "logs/count_krona.log"
     shell:  
