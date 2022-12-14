@@ -6,3 +6,8 @@ nanofilt:
 yacrd: 
   coverage: 4
   minimal_coverage: 0.4
+
+emu:
+  db: #"GTDB-r207-SSU-All-Custom"
+      #"RDP-Trainset-v18-Custom" 
+      "SILVA-v138.1-SSU-NR99-Custom"

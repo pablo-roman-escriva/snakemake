@@ -4,4 +4,8 @@ logs/
 postqc/
 preqc/
 scripts/
+output/
+rel-abundances/
+.crates*
 dag.pdf
+databases/

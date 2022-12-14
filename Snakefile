@@ -8,7 +8,8 @@ rule all:
     input:
         expand("preqc/{id}_fastqc.html", id=samples),
         expand("postqc/{id}_nanostat.txt", id=samples),
-        expand("postqc/{id}_fastqc.html", id=samples)
+        expand("postqc/{id}_fastqc.html", id=samples),
+        "output/formated_emu_table_combined_counts.tsv"
     threads: 
         workflow.cores
 
@@ -115,8 +116,45 @@ rule nanostat:
         "postqc/{id}_nanostat.txt"
     log:
         "logs/postqc/{id}_nanostat"
+    threads:  
+        workflow.cores
+    shell:
+        "NanoStat -t {workflow.cores} --fastq {input} > {output} 2> {log}"
+
+rule emu:
+    input:
+        "postqc/{id}_qc.fastq"
+    output:
+        "rel-abundances/{id}_qc_rel-abundance.tsv"
+    log:
+        "logs/emu/{id}_emu"
+    params:
+        db = config["emu"]["db"]
     threads: 
         workflow.cores
     shell:
-        "NanoStat -t {workflow.cores} --fastq {input} > {output}"
- 
+        "emu abundance --keep-counts --type map-ont --db databases/{params.db} --output-dir rel-abundances --threads {workflow.cores} {input} &> {log}"
+
+rule combine_outputs:
+    input:
+        "rel-abundances"
+    output:
+        "output/emu-combined-tax_id-counts.tsv"
+    log:
+        "logs/combine_outputs.log"
+    shell:
+        "emu combine-outputs output tax_id --counts > {log}"
+
+rule counts_krona:
+    input:
+        "output/emu-combined-tax_id-counts.tsv"
+    output:
+        "output/formated_emu_table_combined_counts.tsv"
+    log:
+        "logs/count_krona.log"
+    shell:  
+        "python scripts/emu_table_2_krona_v2.py -t {input} -o output"
+
+rule barplot_and_heatmap:
+    input:
+        "output/formated_emu_table_combined_counts.tsv"
