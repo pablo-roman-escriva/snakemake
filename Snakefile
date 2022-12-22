@@ -7,7 +7,7 @@ samples, = glob_wildcards("input/{id}.fastq")
 rule all:
     input:
         expand("preqc/{id}_fastqc.html", id=samples),
-        expand("postqc/{id}_nanostat.txt", id=samples),
+        #expand("postqc/{id}_nanostat.txt", id=samples),
         expand("postqc/{id}_fastqc.html", id=samples),
         expand("rel-abundances/{id}_qc_rel-abundance.tsv", id=samples),
         "output/formated_emu_table_combined_counts.tsv",
@@ -75,15 +75,12 @@ rule yacrd:
     output:
         temp("postqc/{id}.yacrd"),
         "postqc/{id}.scrubb.fastq"
-    params:
-        coverage = config["yacrd"]["coverage"],
-        minimal_coverage = config["yacrd"]["minimal_coverage"]
     log:
         "logs/postqc/{id}_yacrd"
     threads: 
         workflow.cores
     shell:
-        "yacrd -t {workflow.cores} -i {input[0]} -o {output[0]} -c {params.coverage} -n {params.minimal_coverage} scrubb -i {input[1]} -o {output[1]} &> {log}"
+        "yacrd -t {workflow.cores} -i {input[0]} -o {output[0]} -c 4 -n 0.4 scrubb -i {input[1]} -o {output[1]} &> {log}"
 
 rule fastqc_post:
     input: 
@@ -111,7 +108,7 @@ rule rename:
         mv {input[1]} {output[1]}
         """
 
-rule nanostat:
+""" rule nanostat:
     input:
         "postqc/{id}_qc.fastq"
     output:
@@ -122,7 +119,7 @@ rule nanostat:
         workflow.cores
     shell:
         "NanoStat -t {workflow.cores} --fastq {input} > {output} 2> {log}"
-
+ """
 rule emu:
     input:
         "postqc/{id}_qc.fastq"
