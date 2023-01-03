@@ -1,0 +1,22 @@
+23.01091081593928	Bacteria	Cyanobacteria	Cyanobacteriia	Chloroplast	Chloroplast	Chloroplast	Chloroplast
+0.0	Bacteria	Firmicutes	Bacilli	Lactobacillales	Lactobacillaceae	Lactobacillus	Lactobacillus Lactobacillus acidophilus
+26.57582210833646	Bacteria	Campylobacterota	Campylobacteria	Campylobacterales	Campylobacteraceae	Campylobacter_D	Campylobacter_D Campylobacter_D coli
+1288.0688129863297	Bacteria	Firmicutes	Bacilli	Bacillales	Bacillaceae	Bacillus	Bacillus Bacillus subtilis
+4327.856122548843	Bacteria	Firmicutes	Bacilli	Staphylococcales	Staphylococcaceae	Staphylococcus	Staphylococcus Staphylococcus aureus
+0.0	Bacteria	Firmicutes	Bacilli	Lactobacillales	Lactobacillaceae	Leuconostoc	Leuconostoc Leuconostoc suionicum
+23.674375304011978	Bacteria	Firmicutes	Bacilli	Bacillales	Bacillaceae	Bacillus	Bacillus Bacillus velezensis
+29.025311150111165	Bacteria	Campylobacterota	Campylobacteria	Campylobacterales	Campylobacteraceae	Campylobacter_D	Campylobacter_D Campylobacter_D lari
+0.0	Bacteria	Proteobacteria	Alphaproteobacteria	Rickettsiales	Mitochondria	Mitochondria	Mitochondria
+592.8990669051647	Bacteria	Proteobacteria	Gammaproteobacteria	Pseudomonadales	Pseudomonadaceae	Pseudomonas	Pseudomonas Pseudomonas aeruginosa
+3873.336258773216	Bacteria	Proteobacteria	Gammaproteobacteria	Enterobacterales	Enterobacteriaceae	Escherichia	Escherichia Escherichia coli
+311.05665670651166	Bacteria	Firmicutes	Bacilli	Bacillales	Bacillaceae	Bacillus	Bacillus Bacillus halotolerans
+2592.295223844884	Bacteria	Firmicutes	Bacilli	Lactobacillales	Lactobacillaceae	Limosilactobacillus	Limosilactobacillus Limosilactobacillus fermentum
+2759.158756349674	Bacteria	Firmicutes	Bacilli	Lactobacillales	Enterococcaceae	Enterococcus	Enterococcus Enterococcus faecalis
+0.0	Bacteria	Firmicutes	Bacilli	Lactobacillales	Streptococcaceae	Lactococcus	Lactococcus Lactococcus lactis
+15.007115749525616	Bacteria	Firmicutes	Bacilli	Lactobacillales	Streptococcaceae	Lactococcus	Lactococcus Lactococcus cremoris
+4368.573837018715	Bacteria	Firmicutes	Bacilli	Bacillales	Bacillaceae	Bacillus	Bacillus Bacillus spizizenii
+0.0	Bacteria	Firmicutes	Bacilli	Lactobacillales	Lactobacillaceae	Weissella	Weissella Weissella confusa
+3736.56624379761	Bacteria	Proteobacteria	Gammaproteobacteria	Enterobacterales	Enterobacteriaceae	Salmonella	Salmonella Salmonella enterica
+1665.5193609567057	Bacteria	Firmicutes	Bacilli	Lactobacillales	Listeriaceae	Listeria	Listeria Listeria monocytogenes_B
+1784.3761249843913	Bacteria	Firmicutes	Bacilli	Lactobacillales	Listeriaceae	Listeria	Listeria Listeria monocytogenes
+10.0	Unassigned	Unassigned	Unassigned	Unassigned	Unassigned	Unassigned	Unassigned

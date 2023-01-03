@@ -1,9 +1,0 @@
-nanofilt:
-  minlen: 1200 
-  maxlen: 1800
-  quality: 0
-
-emu:
-  db: #"GTDB-r207-SSU-All-Custom"
-      #"RDP-Trainset-v18-Custom" 
-      "SILVA-v138.1-SSU-NR99-Custom"

@@ -1,0 +1,191 @@
+# java >= 11
+
+configfile: "config/config.yaml"
+
+samples, = glob_wildcards("input/{id}.fastq")
+
+rule all:
+    input:
+        expand("results/preqc/{id}_fastqc.html", id=samples),
+        #expand("postqc/{id}_nanostat.txt", id=samples),
+        expand("results/postqc/{id}_fastqc.html", id=samples),
+        #expand("rel-abundances/{id}_qc_rel-abundance.tsv", id=samples),
+        #"results/emu-combined-tax_id-counts.tsv",
+        #"results/formated_emu_table_combined_counts.tsv",
+        "results/krona_composition_samples.html",
+        "results/filtered/most_abundant_class.svg"
+    threads: 
+        workflow.cores
+
+rule fastqc_pre:
+    input: 
+        "input/{id}.fastq"
+    output: 
+        "results/preqc/{id}_fastqc.html",
+        temp("results/preqc/{id}_fastqc.zip")
+    log:
+        "results/logs/preqc/{id}_fastqc.log"
+    threads: 
+        workflow.cores
+    shell:
+        "scripts/fast_qc/fastqc -o preqc -t {workflow.cores} {input} &> {log}"
+
+rule porechop:
+    input: 
+        "input/{id}.fastq"
+    output:
+        temp("results/postqc/{id}_porechop.fastq")
+    log:
+        "results/logs/postqc/{id}_porechop.log"
+    threads: 
+        workflow.cores
+    shell:
+        "porechop -t {workflow.cores} -i {input} -o {output} &> {log}"
+
+rule nanofilt:
+    input:
+        "results/postqc/{id}_porechop.fastq"
+    output:
+        temp("results/postqc/{id}_porechop_nanofilt.fastq")
+    params:
+        min_len = config["nanofilt"]["min_len"],
+        max_len = config["nanofilt"]["max_len"],
+        quality = config["nanofilt"]["quality"],
+        min_gc = config["nanofilt"]["min_gc"],
+        max_gc = config["nanofilt"]["max_gc"],
+        head_crop = config["nanofilt"]["head_crop"],
+        tail_crop = config["nanofilt"]["tail_crop"]
+    log:
+        "results/logs/postqc/{id}_nanofilt.log"
+    threads: 
+        workflow.cores
+    run:
+        parameters = "-l {params.min_len} --maxlength {params.max_len}"
+        if ({params.quality} != 0):
+            parameters += " --q {params.quality}"
+        if ({params.min_gc} != 0.0):
+            parameters += " --minGC {params.min_gc}"
+        if ({params.max_gc} != 1.0):
+            parameters += " --maxGC {params.max_gc}"
+        if ({params.head_crop} != 0):
+            parameters += " --headcrop {params.head_crop}"
+        if ({params.tail_crop} != 0):
+            parameters += " --tailcrop {params.tail_crop}"
+        shell("NanoFilt --logfile {log} " + parameters + " {input} > {output} ")
+
+rule minimap:
+    input:
+        "results/postqc/{id}_porechop_nanofilt.fastq"
+    output:
+        temp("results/postqc/{id}_porechop_nanofilt.paf")
+    log:
+        "results/logs/postqc/{id}_minimap.log"
+    threads: 
+        workflow.cores
+    shell: 
+        "minimap2 -x ava-ont -g 500 -t {workflow.cores} {input} {input} > {output} 2> {log}"
+
+rule yacrd:
+    input:
+        "results/postqc/{id}_porechop_nanofilt.paf",
+        "results/postqc/{id}_porechop_nanofilt.fastq"
+    output:
+        temp("results/postqc/{id}.yacrd"),
+        "results/postqc/{id}.scrubb.fastq"
+    log:
+        "results/logs/postqc/{id}_yacrd"
+    threads: 
+        workflow.cores
+    shell:
+        "yacrd -t {workflow.cores} -i {input[0]} -o {output[0]} -c 4 -n 0.4 scrubb -i {input[1]} -o {output[1]} &> {log}"
+
+rule fastqc_post:
+    input: 
+        "results/postqc/{id}.scrubb.fastq"
+    output: 
+        "results/postqc/{id}.scrubb_fastqc.html",
+        temp("results/postqc/{id}.scrubb_fastqc.zip")
+    log:
+        "results/logs/postqc/{id}.scrubb_fastqc.log"
+    threads: 
+        workflow.cores
+    shell:
+        "scripts/fast_qc/fastqc -o postqc -t {workflow.cores} {input} &> {log}"
+
+rule rename:
+    input:
+        "results/postqc/{id}.scrubb.fastq",
+        "results/postqc/{id}.scrubb_fastqc.html"
+    output:
+        "results/postqc/{id}_qc.fastq",
+        "results/postqc/{id}_fastqc.html"
+    shell:
+        """
+        mv {input[0]} {output[0]}
+        mv {input[1]} {output[1]}
+        """
+
+""" rule nanostat:
+    input:
+        "results/postqc/{id}_qc.fastq"
+    output:
+        "results/{id}_nanostat.txt"
+    log:
+        "results/logs/postqc/{id}_nanostat"
+    threads:  
+        workflow.cores
+    shell:
+        "NanoStat -t {workflow.cores} --fastq {input} > {output} 2> {log}"
+ """
+rule emu:
+    input:
+        "results/postqc/{id}_qc.fastq"
+    output:
+        "rel-abundances/{id}_qc_rel-abundance.tsv"
+    log:
+        "results/logs/emu/{id}_emu"
+    params:
+        db = config["emu"]["db"]
+    threads: 
+        workflow.cores
+    shell:
+        "emu abundance --keep-counts --type map-ont --db resources/databases/{params.db} --output-dir rel-abundances --threads {workflow.cores} {input} &> {log}"
+
+rule combine_outputs:
+    input:
+         expand("rel-abundances/{id}_qc_rel-abundance.tsv", id=samples)
+    output:
+        "results/emu-combined-tax_id-counts.tsv"
+    log:
+        "results/logs/combine_outputs.log"
+    shell:
+        """
+        emu combine-outputs rel-abundances tax_id --counts > {log}
+        mv rel-abundances/emu-combined-tax_id-counts.tsv results/emu-combined-tax_id-counts.tsv
+        """
+
+rule counts_krona:
+    input:
+        "results/emu-combined-tax_id-counts.tsv"
+    output:
+        "results/formated_emu_table_combined_counts.tsv",
+        "results/krona_composition_samples.html"
+    log:
+        "results/logs/count_krona.log"
+    shell:  
+        "python workflow/scripts/emu_table_2_krona_v2.py -t {input} -o results"
+
+rule barplot_and_heatmap:
+    input:
+        "results/formated_emu_table_combined_counts.tsv"
+    output:
+        "results/filtered/most_abundant_class.svg"
+    log: 
+        "results/logs/plots"
+    params:
+        max_num_taxa = config["plots"]["max_num_taxa"],
+        min_num_reads = config["plots"]["min_num_reads"]
+    shell: 
+        """
+        python workflow/scripts/plots.py -t {input} -d results -n {params.max_num_taxa} -r {params.min_num_reads} &> {log}
+        """

@@ -1,0 +1,17 @@
+nanofilt:
+  min_len: 1200 
+  max_len: 1800
+  quality: 0
+  min_gc: 0.0
+  max_gc: 1.0
+  head_crop: 0
+  tail_crop: 0
+
+emu:
+  db: "GTDB-r207-SSU-All-Custom"
+      #"RDP-Trainset-v18-Custom" 
+      #"SILVA-v138.1-SSU-NR99-Custom"
+
+plots:
+  max_num_taxa: 20
+  min_num_reads: 1000

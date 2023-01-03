@@ -1,0 +1,23 @@
+tax_id	species	genus	family	order	class	phylum	superkingdom	barcode05_qc	barcode07_qc	barcode03_qc	barcode06_qc	barcode01_qc	barcode04_qc	barcode02_qc
+1				Chloroplast	Cyanobacteriia	Cyanobacteria	Bacteria	6092.774471449971	7858.506894722885	22653.59330291605	1751.7045568856242	23.01091081593928	21797.99478721215	22135.03610974096
+1109	Lactobacillus acidophilus	Lactobacillus	Lactobacillaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria	56.01631429998336	73.06049456377617		27.41775845192178			
+119	Campylobacter_D coli	Campylobacter_D	Campylobacteraceae	Campylobacterales	Campylobacteria	Campylobacterota	Bacteria					26.57582210833646		
+127	Bacillus subtilis	Bacillus	Bacillaceae	Bacillales	Bacilli	Firmicutes	Bacteria					1288.0688129863297		
+14	Staphylococcus aureus	Staphylococcus	Staphylococcaceae	Staphylococcales	Bacilli	Firmicutes	Bacteria					4327.856122548843		
+14545	Leuconostoc suionicum	Leuconostoc	Lactobacillaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria						23.02765046209332	15.019137992902992
+186	Bacillus velezensis	Bacillus	Bacillaceae	Bacillales	Bacilli	Firmicutes	Bacteria					23.674375304011978		
+1934	Campylobacter_D lari	Campylobacter_D	Campylobacteraceae	Campylobacterales	Campylobacteria	Campylobacterota	Bacteria					29.025311150111165		
+2			Mitochondria	Rickettsiales	Alphaproteobacteria	Proteobacteria	Bacteria	866.2522889961753	974.807146645452	1586.3720707596974	268.10783623377927		4757.892206551473	2904.870752026914
+20	Pseudomonas aeruginosa	Pseudomonas	Pseudomonadaceae	Pseudomonadales	Gammaproteobacteria	Proteobacteria	Bacteria					592.8990669051647		
+26	Escherichia coli	Escherichia	Enterobacteriaceae	Enterobacterales	Gammaproteobacteria	Proteobacteria	Bacteria				21.601957874404448	3873.336258773216		
+3243	Bacillus halotolerans	Bacillus	Bacillaceae	Bacillales	Bacilli	Firmicutes	Bacteria					311.05665670651166		
+453	Limosilactobacillus fermentum	Limosilactobacillus	Lactobacillaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria					2592.295223844884		
+51	Enterococcus faecalis	Enterococcus	Enterococcaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria					2759.158756349674		
+659	Lactococcus lactis	Lactococcus	Streptococcaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria	3676.691048529709	4930.487198805081		5228.858423892804			
+727	Lactococcus cremoris	Lactococcus	Streptococcaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria	13343.26587672389	16356.138265262998	22.019044478337936	12592.309466661263	15.007115749525616	20.024043880081148	24.03062078864479
+767	Bacillus spizizenii	Bacillus	Bacillaceae	Bacillales	Bacilli	Firmicutes	Bacteria					4368.573837018715		
+77	Weissella confusa	Weissella	Lactobacillaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria			18.015581845912852			51.06131189420692	34.04337945058012
+8	Salmonella enterica	Salmonella	Enterobacteriaceae	Enterobacterales	Gammaproteobacteria	Proteobacteria	Bacteria					3736.56624379761		
+81	Listeria monocytogenes_B	Listeria	Listeriaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria					1665.5193609567057		
+86	Listeria monocytogenes	Listeria	Listeriaceae	Lactobacillales	Bacilli	Firmicutes	Bacteria					1784.3761249843913		
+unassigned								0.0	2.0	2.0	3.0	10.0	0.0	0.0
