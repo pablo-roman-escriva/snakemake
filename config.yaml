@@ -3,10 +3,6 @@ nanofilt:
   maxlen: 1800
   quality: 0
 
-yacrd: 
-  coverage: 4
-  minimal_coverage: 0.4
-
 emu:
   db: #"GTDB-r207-SSU-All-Custom"
       #"RDP-Trainset-v18-Custom" 
