@@ -2,6 +2,8 @@
 
 configfile: "config/config.yaml"
 
+report: "report/workflow.rst"
+
 samples, = glob_wildcards("input/{id}.fastq")
 
 rule all:
@@ -21,14 +23,14 @@ rule fastqc_pre:
     input: 
         "input/{id}.fastq"
     output: 
-        "results/preqc/{id}_fastqc.html",
+        report("results/preqc/{id}_fastqc.html", caption="report/preqc.rst", category="PreQC"),
         temp("results/preqc/{id}_fastqc.zip")
     log:
-        "results/logs/preqc/{id}_fastqc.log"
+        report("results/logs/preqc/{id}_fastqc.log", caption="report/preqc.rst", category="log")
     threads: 
         workflow.cores
     shell:
-        "scripts/fast_qc/fastqc -o preqc -t {workflow.cores} {input} &> {log}"
+        "workflow/scripts/fast_qc/fastqc -o results/preqc -t {workflow.cores} {input} &> {log}"
 
 rule porechop:
     input: 
@@ -110,7 +112,7 @@ rule fastqc_post:
     threads: 
         workflow.cores
     shell:
-        "scripts/fast_qc/fastqc -o postqc -t {workflow.cores} {input} &> {log}"
+        "workflow/scripts/fast_qc/fastqc -o results/postqc -t {workflow.cores} {input} &> {log}"
 
 rule rename:
     input:
@@ -189,3 +191,7 @@ rule barplot_and_heatmap:
         """
         python workflow/scripts/plots.py -t {input} -d results -n {params.max_num_taxa} -r {params.min_num_reads} &> {log}
         """
+
+onsuccess:
+    from snakemake.report import auto_report
+    auto_report(workflow.persistence.dag, "workflow/report/report.html")

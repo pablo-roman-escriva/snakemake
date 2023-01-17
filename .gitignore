@@ -1,11 +1,10 @@
 .snakemake/
 input/
 logs/
-postqc/
-preqc/
-scripts/
-output/
+workflow/scripts/
+workflow/report
 rel-abundances/
 .crates*
 dag.pdf
-databases/
+resources/databases/
+results/
