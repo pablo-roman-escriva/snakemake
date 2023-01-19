@@ -101,7 +101,7 @@ rule fastqc_post:
     input: 
         "results/postqc/{id}.fastq"
     output: 
-        "results/postqc/{id}_fastqc.html",
+        report("results/postqc/{id}_fastqc.html", category="After QC"),
         temp("results/postqc/{id}_fastqc.zip")
     log:
         "results/logs/postqc/{id}_fastqc.log"
