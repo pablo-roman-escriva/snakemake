@@ -1,21 +1,13 @@
-# java >= 11
-
 configfile: "config/config.yaml"
-
-report: "report/workflow.rst"
 
 samples, = glob_wildcards("input/{id}.fastq")
 
 rule all:
     input:
         expand("results/preqc/{id}_fastqc.html", id=samples),
-        #expand("postqc/{id}_nanostat.txt", id=samples),
         expand("results/postqc/{id}_fastqc.html", id=samples),
-        #expand("rel-abundances/{id}_qc_rel-abundance.tsv", id=samples),
-        #"results/emu-combined-tax_id-counts.tsv",
-        #"results/formated_emu_table_combined_counts.tsv",
         "results/krona_composition_samples.html",
-        "results/filtered/most_abundant_class.svg"
+        "results/filtered/most_abundant_superkingdom.svg"
     threads: 
         workflow.cores
 
@@ -23,10 +15,10 @@ rule fastqc_pre:
     input: 
         "input/{id}.fastq"
     output: 
-        report("results/preqc/{id}_fastqc.html", caption="report/preqc.rst", category="PreQC"),
+        report("results/preqc/{id}_fastqc.html", category="Before QC"),
         temp("results/preqc/{id}_fastqc.zip")
     log:
-        report("results/logs/preqc/{id}_fastqc.log", caption="report/preqc.rst", category="log")
+        "results/logs/preqc/{id}_fastqc.log"
     threads: 
         workflow.cores
     shell:
@@ -120,7 +112,7 @@ rule rename:
         "results/postqc/{id}.scrubb_fastqc.html"
     output:
         "results/postqc/{id}_qc.fastq",
-        "results/postqc/{id}_fastqc.html"
+        report("results/postqc/{id}_fastqc.html", category="After QC"),
     shell:
         """
         mv {input[0]} {output[0]}
@@ -171,7 +163,7 @@ rule counts_krona:
         "results/emu-combined-tax_id-counts.tsv"
     output:
         "results/formated_emu_table_combined_counts.tsv",
-        "results/krona_composition_samples.html"
+        report("results/krona_composition_samples.html", category="Krona")
     log:
         "results/logs/count_krona.log"
     shell:  
@@ -181,7 +173,34 @@ rule barplot_and_heatmap:
     input:
         "results/formated_emu_table_combined_counts.tsv"
     output:
-        "results/filtered/most_abundant_class.svg"
+        report("results/filtered/most_abundant_superkingdom.svg", category="Filtered", subcategory="Barplots"),
+        report("results/filtered/most_abundant_phylum.svg", category="Filtered", subcategory="Barplots"),
+        report("results/filtered/most_abundant_class.svg", category="Filtered", subcategory="Barplots"),
+        report("results/filtered/most_abundant_order.svg", category="Filtered", subcategory="Barplots"),
+        report("results/filtered/most_abundant_family.svg", category="Filtered", subcategory="Barplots"),
+        report("results/filtered/most_abundant_genus.svg", category="Filtered", subcategory="Barplots"),
+        report("results/filtered/most_abundant_species.svg", category="Filtered", subcategory="Barplots"),
+        report("results/filtered/clustered_heatmap_superkingdom.svg", category="Filtered", subcategory="Heatmaps"),
+        report("results/filtered/clustered_heatmap_phylum.svg", category="Filtered", subcategory="Heatmaps"),
+        report("results/filtered/clustered_heatmap_class.svg", category="Filtered", subcategory="Heatmaps"),
+        report("results/filtered/clustered_heatmap_order.svg", category="Filtered", subcategory="Heatmaps"),
+        report("results/filtered/clustered_heatmap_family.svg", category="Filtered", subcategory="Heatmaps"),
+        report("results/filtered/clustered_heatmap_genus.svg", category="Filtered", subcategory="Heatmaps"),
+        report("results/filtered/clustered_heatmap_species.svg", category="Filtered", subcategory="Heatmaps"),
+        report("results/unfiltered/most_abundant_superkingdom.svg", category="Unfiltered", subcategory="Barplots"),
+        report("results/unfiltered/most_abundant_phylum.svg", category="Unfiltered", subcategory="Barplots"),
+        report("results/unfiltered/most_abundant_class.svg", category="Unfiltered", subcategory="Barplots"),
+        report("results/unfiltered/most_abundant_order.svg", category="Unfiltered", subcategory="Barplots"),
+        report("results/unfiltered/most_abundant_family.svg", category="Unfiltered", subcategory="Barplots"),
+        report("results/unfiltered/most_abundant_genus.svg", category="Unfiltered", subcategory="Barplots"),
+        report("results/unfiltered/most_abundant_species.svg", category="Unfiltered", subcategory="Barplots"),
+        report("results/unfiltered/clustered_heatmap_superkingdom.svg", category="Unfiltered", subcategory="Heatmaps"),
+        report("results/unfiltered/clustered_heatmap_phylum.svg", category="Unfiltered", subcategory="Heatmaps"),
+        report("results/unfiltered/clustered_heatmap_class.svg", category="Unfiltered", subcategory="Heatmaps"),
+        report("results/unfiltered/clustered_heatmap_order.svg", category="Unfiltered", subcategory="Heatmaps"),
+        report("results/unfiltered/clustered_heatmap_family.svg", category="Unfiltered", subcategory="Heatmaps"),
+        report("results/unfiltered/clustered_heatmap_genus.svg", category="Unfiltered", subcategory="Heatmaps"),
+        report("results/unfiltered/clustered_heatmap_species.svg", category="Unfiltered", subcategory="Heatmaps")
     log: 
         "results/logs/plots"
     params:
