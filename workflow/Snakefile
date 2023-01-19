@@ -22,13 +22,13 @@ rule fastqc_pre:
     threads: 
         workflow.cores
     shell:
-        "workflow/scripts/fast_qc/fastqc -o results/preqc -t {workflow.cores} {input} &> {log}"
+        "workflow/scripts/fastqc_v0.11.7/fastqc -o results/preqc -t {workflow.cores} {input} &> {log}"
 
 rule porechop:
     input: 
         "input/{id}.fastq"
     output:
-        temp("results/postqc/{id}_porechop.fastq")
+        temp("results/postqc/{id}.porechop.fastq")
     log:
         "results/logs/postqc/{id}_porechop.log"
     threads: 
@@ -38,9 +38,9 @@ rule porechop:
 
 rule nanofilt:
     input:
-        "results/postqc/{id}_porechop.fastq"
+        "results/postqc/{id}.porechop.fastq"
     output:
-        temp("results/postqc/{id}_porechop_nanofilt.fastq")
+        temp("results/postqc/{id}.porechop.nanofilt.fastq")
     params:
         min_len = config["nanofilt"]["min_len"],
         max_len = config["nanofilt"]["max_len"],
@@ -49,6 +49,8 @@ rule nanofilt:
         max_gc = config["nanofilt"]["max_gc"],
         head_crop = config["nanofilt"]["head_crop"],
         tail_crop = config["nanofilt"]["tail_crop"]
+    wildcard_constraints:
+        id='\w+'
     log:
         "results/logs/postqc/{id}_nanofilt.log"
     threads: 
@@ -69,9 +71,9 @@ rule nanofilt:
 
 rule minimap:
     input:
-        "results/postqc/{id}_porechop_nanofilt.fastq"
+        "results/postqc/{id}.porechop.nanofilt.fastq"
     output:
-        temp("results/postqc/{id}_porechop_nanofilt.paf")
+        temp("results/postqc/{id}.porechop.nanofilt.paf")
     log:
         "results/logs/postqc/{id}_minimap.log"
     threads: 
@@ -81,61 +83,38 @@ rule minimap:
 
 rule yacrd:
     input:
-        "results/postqc/{id}_porechop_nanofilt.paf",
-        "results/postqc/{id}_porechop_nanofilt.fastq"
+        "results/postqc/{id}.porechop.nanofilt.paf",
+        "results/postqc/{id}.porechop.nanofilt.fastq"
     output:
         temp("results/postqc/{id}.yacrd"),
-        "results/postqc/{id}.scrubb.fastq"
+        "results/postqc/{id}.fastq"
     log:
         "results/logs/postqc/{id}_yacrd"
+    wildcard_constraints:
+        id='\w+'
     threads: 
         workflow.cores
     shell:
-        "yacrd -t {workflow.cores} -i {input[0]} -o {output[0]} -c 4 -n 0.4 scrubb -i {input[1]} -o {output[1]} &> {log}"
+        "yacrd -t {workflow.cores} -i {input[0]} -o {output[0]} -c 4 -n 0.4 scrubb -i {input[1]} -o {output[1]} &> {log}"  
 
 rule fastqc_post:
     input: 
-        "results/postqc/{id}.scrubb.fastq"
+        "results/postqc/{id}.fastq"
     output: 
-        "results/postqc/{id}.scrubb_fastqc.html",
-        temp("results/postqc/{id}.scrubb_fastqc.zip")
+        "results/postqc/{id}_fastqc.html",
+        temp("results/postqc/{id}_fastqc.zip")
     log:
-        "results/logs/postqc/{id}.scrubb_fastqc.log"
+        "results/logs/postqc/{id}_fastqc.log"
     threads: 
         workflow.cores
     shell:
-        "workflow/scripts/fast_qc/fastqc -o results/postqc -t {workflow.cores} {input} &> {log}"
+        "workflow/scripts/fastqc_v0.11.7/fastqc -o results/postqc -t {workflow.cores} {input} &> {log}"
 
-rule rename:
-    input:
-        "results/postqc/{id}.scrubb.fastq",
-        "results/postqc/{id}.scrubb_fastqc.html"
-    output:
-        "results/postqc/{id}_qc.fastq",
-        report("results/postqc/{id}_fastqc.html", category="After QC"),
-    shell:
-        """
-        mv {input[0]} {output[0]}
-        mv {input[1]} {output[1]}
-        """
-
-""" rule nanostat:
-    input:
-        "results/postqc/{id}_qc.fastq"
-    output:
-        "results/{id}_nanostat.txt"
-    log:
-        "results/logs/postqc/{id}_nanostat"
-    threads:  
-        workflow.cores
-    shell:
-        "NanoStat -t {workflow.cores} --fastq {input} > {output} 2> {log}"
- """
 rule emu:
     input:
-        "results/postqc/{id}_qc.fastq"
+        "results/postqc/{id}.fastq"
     output:
-        "rel-abundances/{id}_qc_rel-abundance.tsv"
+        "rel-abundances/{id}_rel-abundance.tsv"
     log:
         "results/logs/emu/{id}_emu"
     params:
@@ -147,7 +126,7 @@ rule emu:
 
 rule combine_outputs:
     input:
-         expand("rel-abundances/{id}_qc_rel-abundance.tsv", id=samples)
+         expand("rel-abundances/{id}_rel-abundance.tsv", id=samples)
     output:
         "results/emu-combined-tax_id-counts.tsv"
     log:
