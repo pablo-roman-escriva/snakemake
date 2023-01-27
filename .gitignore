@@ -1,5 +1,6 @@
 .snakemake/
 input/
+input_backup/
 logs/
 workflow/scripts/
 workflow/report

@@ -1,24 +1,86 @@
-configfile: "config/config.yaml"
+import os
+import shutil
 
-samples, = glob_wildcards("input/{id}.fastq")
+report: "report/workflow.rst"
+
+configfile: "config/config.yaml"
+input_dir = config["folders"]["input"]
+results_dir = config["folders"]["results"]
+abundances_dir = config["folders"]["abundances"]
+
+samples, = glob_wildcards(input_dir+"/{id}.fastq")
+filter_type = ["filtered", "unfiltered"]
+if (sum(len(files) for _, _, files in os.walk(input_dir)) == 1):
+    graph_type = ["most_abundant"]
+else: 
+    graph_type = ["most_abundant", "clustered_heatmap"]
+tax_level = ["superkingdom","phylum","class","order","family","genus","species"]
+number = {}
+
+def graph_label(tipo):
+    if tipo == "clustered_heatmap":
+        return "Heatmap"
+    elif tipo == "most_abundant":
+        return "Barplot"
+    else:
+        return "Unknown"
+
+def dict_labels(wildcards): 
+    my_dict = {
+        "Graph" : graph_label(wildcards.graph_type)
+    }
+    return my_dict
+
+def dict_labels_filter_type(wildcards):
+    my_dict = {
+        "Type": wildcards.filter_type.capitalize()
+    }
+    return my_dict
 
 rule all:
     input:
-        expand("results/preqc/{id}_fastqc.html", id=samples),
-        expand("results/postqc/{id}_fastqc.html", id=samples),
-        "results/krona_composition_samples.html",
-        "results/filtered/most_abundant_superkingdom.svg"
+        results_dir+"/read_counts.xlsx",
+        expand(results_dir+"/preqc/{id}_fastqc.html", id=samples),
+        expand(results_dir+"/postqc/{id}_fastqc.html", id=samples),
+        expand(results_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", filter_type=filter_type),
+        expand(results_dir+"/krona_{filter_type}/krona_composition_samples.html", filter_type=filter_type),
+        expand(results_dir+"/{filter_type}/{graph_type}_{tax_level}.svg", 
+                tax_level=tax_level,
+                filter_type=filter_type,
+                graph_type=graph_type),
+        report("config/config.yaml", category="Configuration", labels = {
+            "File" : "Parameters"
+        }),
+        report("resources/databases/"+config["emu"]["db"]+"/README_"+config["emu"]["db"]+".txt", category="Configuration", labels = {
+            "File" : "Database"
+        })
+        
+    wildcard_constraints: 
+        graph_type='[a-zA-Z]+_[a-zA-Z]+',
+        tax_level='[a-zA-Z]'
+
     threads: 
         workflow.cores
 
+rule initial_read_counts:
+    input:
+        input_dir+"/{id}.fastq"
+    output: 
+        results_dir+"/temp/{id}_counts_0.csv"
+    shell:
+        "./workflow/scripts-sm/count_fastq.sh {input} {output}"
+
 rule fastqc_pre:
     input: 
-        "input/{id}.fastq"
+        input_dir+"/{id}.fastq"
     output: 
-        report("results/preqc/{id}_fastqc.html", category="Before QC"),
-        temp("results/preqc/{id}_fastqc.zip")
+        report(results_dir+"/preqc/{id}_fastqc.html", category="Before QC",
+        labels = {
+            "Sample" : "{id}"
+        }),
+        temp(results_dir+"/preqc/{id}_fastqc.zip")
     log:
-        "results/logs/preqc/{id}_fastqc.log"
+        results_dir+"/logs/preqc/{id}_fastqc.log"
     threads: 
         workflow.cores
     shell:
@@ -26,21 +88,29 @@ rule fastqc_pre:
 
 rule porechop:
     input: 
-        "input/{id}.fastq"
+        input_dir+"/{id}.fastq"
     output:
-        temp("results/postqc/{id}.porechop.fastq")
+        temp(results_dir+"/postqc/{id}.porechop.fastq")
     log:
-        "results/logs/postqc/{id}_porechop.log"
+        results_dir+"/logs/postqc/{id}_porechop.log"
     threads: 
         workflow.cores
     shell:
         "porechop -t {workflow.cores} -i {input} -o {output} &> {log}"
 
+rule porechop_read_counts:
+    input:
+        results_dir+"/postqc/{id}.porechop.fastq"
+    output: 
+        results_dir+"/temp/{id}_counts_1.csv"
+    shell:
+        "./workflow/scripts-sm/count_fastq.sh {input} {output}"
+        
 rule nanofilt:
     input:
-        "results/postqc/{id}.porechop.fastq"
+        results_dir+"/postqc/{id}.porechop.fastq"
     output:
-        temp("results/postqc/{id}.porechop.nanofilt.fastq")
+        temp(results_dir+"/postqc/{id}.porechop.nanofilt.fastq")
     params:
         min_len = config["nanofilt"]["min_len"],
         max_len = config["nanofilt"]["max_len"],
@@ -52,7 +122,7 @@ rule nanofilt:
     wildcard_constraints:
         id='\w+'
     log:
-        "results/logs/postqc/{id}_nanofilt.log"
+        results_dir+"/logs/postqc/{id}_nanofilt.log"
     threads: 
         workflow.cores
     run:
@@ -69,13 +139,22 @@ rule nanofilt:
             parameters += " --tailcrop {params.tail_crop}"
         shell("NanoFilt --logfile {log} " + parameters + " {input} > {output} ")
 
+
+rule nanofilt_read_counts:
+    input:
+        results_dir+"/postqc/{id}.porechop.nanofilt.fastq"
+    output: 
+        results_dir+"/temp/{id}_counts_2.csv"
+    shell:
+        "./workflow/scripts-sm/count_fastq.sh {input} {output}"
+
 rule minimap:
     input:
-        "results/postqc/{id}.porechop.nanofilt.fastq"
+        results_dir+"/postqc/{id}.porechop.nanofilt.fastq"
     output:
-        temp("results/postqc/{id}.porechop.nanofilt.paf")
+        temp(results_dir+"/postqc/{id}.porechop.nanofilt.paf")
     log:
-        "results/logs/postqc/{id}_minimap.log"
+        results_dir+"/logs/postqc/{id}_minimap.log"
     threads: 
         workflow.cores
     shell: 
@@ -83,13 +162,13 @@ rule minimap:
 
 rule yacrd:
     input:
-        "results/postqc/{id}.porechop.nanofilt.paf",
-        "results/postqc/{id}.porechop.nanofilt.fastq"
+        results_dir+"/postqc/{id}.porechop.nanofilt.paf",
+        results_dir+"/postqc/{id}.porechop.nanofilt.fastq"
     output:
-        temp("results/postqc/{id}.yacrd"),
-        "results/postqc/{id}.fastq"
+        temp(results_dir+"/postqc/{id}.yacrd"),
+        results_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
     log:
-        "results/logs/postqc/{id}_yacrd"
+        results_dir+"/logs/postqc/{id}_yacrd"
     wildcard_constraints:
         id='\w+'
     threads: 
@@ -97,14 +176,51 @@ rule yacrd:
     shell:
         "yacrd -t {workflow.cores} -i {input[0]} -o {output[0]} -c 4 -n 0.4 scrubb -i {input[1]} -o {output[1]} &> {log}"  
 
+rule yacrd_read_counts:
+    input:
+        results_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
+    output: 
+        results_dir+"/temp/{id}_counts_3.csv"
+    shell:
+        "./workflow/scripts-sm/count_fastq.sh {input} {output}"
+
+rule aggregate_count_stats:
+    input: 
+        expand(results_dir+"/temp/{id}_counts_{index}.csv", id=samples, index=[0,1,2,3])
+    output:
+        results_dir+"/temp/{id}_read_counts.txt"
+    run:
+        sorted_input = sorted({input})
+        current_sample = ""
+        for file_input in sorted_input:
+            for file2 in file_input:
+                file_name = str(file2)
+                if file_name.endswith("_counts_0.csv"):
+                    sample_name = file_name.rstrip("_counts_0.csv")
+                    sample_name = sample_name.lstrip(results_dir+"/temp/")
+                    current_sample = sample_name
+                    with open(results_dir+"/temp/"+sample_name+"_read_counts.txt", "w") as new_file:
+                        with open(file_name, "r") as og_file:
+                            for line in og_file:
+                                new_file.write(line)
+                elif file_name.endswith(".csv"):
+                    with open(results_dir+"/temp/"+current_sample+"_read_counts.txt", "a") as current_file:
+                        with open(file_name, "r") as og_file:
+                            for line in og_file:
+                                current_file.write(line)
+                
+        
 rule fastqc_post:
     input: 
-        "results/postqc/{id}.fastq"
+        results_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
     output: 
-        report("results/postqc/{id}_fastqc.html", category="After QC"),
-        temp("results/postqc/{id}_fastqc.zip")
+        report(results_dir+"/postqc/{id}_fastqc.html", category="After QC",
+        labels = {
+            "Sample" : "{id}"
+        }),
+        temp(results_dir+"/postqc/{id}_fastqc.zip")
     log:
-        "results/logs/postqc/{id}_fastqc.log"
+        results_dir+"/logs/postqc/{id}_fastqc.log"
     threads: 
         workflow.cores
     shell:
@@ -112,11 +228,11 @@ rule fastqc_post:
 
 rule emu:
     input:
-        "results/postqc/{id}.fastq"
+        results_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
     output:
         "rel-abundances/{id}_rel-abundance.tsv"
     log:
-        "results/logs/emu/{id}_emu"
+        results_dir+"/logs/emu/{id}_emu"
     params:
         db = config["emu"]["db"]
     threads: 
@@ -126,70 +242,166 @@ rule emu:
 
 rule combine_outputs:
     input:
-         expand("rel-abundances/{id}_rel-abundance.tsv", id=samples)
+        expand("rel-abundances/{id}_rel-abundance.tsv", id=samples)
     output:
-        "results/emu-combined-tax_id-counts.tsv"
+        results_dir+"/emu-combined-tax_id-counts.tsv"
     log:
-        "results/logs/combine_outputs.log"
+        results_dir+"/logs/combine_outputs.log"
     shell:
         """
         emu combine-outputs rel-abundances tax_id --counts > {log}
         mv rel-abundances/emu-combined-tax_id-counts.tsv results/emu-combined-tax_id-counts.tsv
         """
 
-rule counts_krona:
+rule filter_count_tables:
     input:
-        "results/emu-combined-tax_id-counts.tsv"
+        results_dir+"/emu-combined-tax_id-counts.tsv"
     output:
-        "results/formated_emu_table_combined_counts.tsv",
-        report("results/krona_composition_samples.html", category="Krona")
+        report(results_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", category="Tables", labels=dict_labels_filter_type)
     log:
-        "results/logs/count_krona.log"
+        results_dir+"/logs/{filter_type}_count_tables.log"
     shell:  
-        "python workflow/scripts/emu_table_2_krona_v2.py -t {input} -o results"
+        "python workflow/scripts/format_count_tables.py -t {input} -o results"
 
-rule barplot_and_heatmap:
+rule complete_count_stats:
     input:
-        "results/formated_emu_table_combined_counts.tsv"
+        results_dir+"/formated_emu_table_combined_counts_unfiltered.tsv",
+        expand(results_dir+"/temp/{id}_read_counts.txt", id=samples)
+    output: 
+        report(results_dir+"/read_counts.xlsx", category="Tables", labels={
+            "Type": "Stats"
+        })
+    shell:
+        """
+        python workflow/scripts/write_global_stats.py -d results/temp -t {input[0]}
+        mv results/temp/read_counts.xlsx results/read_counts.xlsx
+        """
+rule kronas:
+    input: 
+        results_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv"
     output:
-        report("results/filtered/most_abundant_superkingdom.svg", category="Filtered", subcategory="Barplots"),
-        report("results/filtered/most_abundant_phylum.svg", category="Filtered", subcategory="Barplots"),
-        report("results/filtered/most_abundant_class.svg", category="Filtered", subcategory="Barplots"),
-        report("results/filtered/most_abundant_order.svg", category="Filtered", subcategory="Barplots"),
-        report("results/filtered/most_abundant_family.svg", category="Filtered", subcategory="Barplots"),
-        report("results/filtered/most_abundant_genus.svg", category="Filtered", subcategory="Barplots"),
-        report("results/filtered/most_abundant_species.svg", category="Filtered", subcategory="Barplots"),
-        report("results/filtered/clustered_heatmap_superkingdom.svg", category="Filtered", subcategory="Heatmaps"),
-        report("results/filtered/clustered_heatmap_phylum.svg", category="Filtered", subcategory="Heatmaps"),
-        report("results/filtered/clustered_heatmap_class.svg", category="Filtered", subcategory="Heatmaps"),
-        report("results/filtered/clustered_heatmap_order.svg", category="Filtered", subcategory="Heatmaps"),
-        report("results/filtered/clustered_heatmap_family.svg", category="Filtered", subcategory="Heatmaps"),
-        report("results/filtered/clustered_heatmap_genus.svg", category="Filtered", subcategory="Heatmaps"),
-        report("results/filtered/clustered_heatmap_species.svg", category="Filtered", subcategory="Heatmaps"),
-        report("results/unfiltered/most_abundant_superkingdom.svg", category="Unfiltered", subcategory="Barplots"),
-        report("results/unfiltered/most_abundant_phylum.svg", category="Unfiltered", subcategory="Barplots"),
-        report("results/unfiltered/most_abundant_class.svg", category="Unfiltered", subcategory="Barplots"),
-        report("results/unfiltered/most_abundant_order.svg", category="Unfiltered", subcategory="Barplots"),
-        report("results/unfiltered/most_abundant_family.svg", category="Unfiltered", subcategory="Barplots"),
-        report("results/unfiltered/most_abundant_genus.svg", category="Unfiltered", subcategory="Barplots"),
-        report("results/unfiltered/most_abundant_species.svg", category="Unfiltered", subcategory="Barplots"),
-        report("results/unfiltered/clustered_heatmap_superkingdom.svg", category="Unfiltered", subcategory="Heatmaps"),
-        report("results/unfiltered/clustered_heatmap_phylum.svg", category="Unfiltered", subcategory="Heatmaps"),
-        report("results/unfiltered/clustered_heatmap_class.svg", category="Unfiltered", subcategory="Heatmaps"),
-        report("results/unfiltered/clustered_heatmap_order.svg", category="Unfiltered", subcategory="Heatmaps"),
-        report("results/unfiltered/clustered_heatmap_family.svg", category="Unfiltered", subcategory="Heatmaps"),
-        report("results/unfiltered/clustered_heatmap_genus.svg", category="Unfiltered", subcategory="Heatmaps"),
-        report("results/unfiltered/clustered_heatmap_species.svg", category="Unfiltered", subcategory="Heatmaps")
+        report(results_dir+"/krona_{filter_type}/krona_composition_samples.html",
+            category="Kronas",
+            labels=dict_labels_filter_type
+        )
+    log:
+        results_dir+"/logs/kronas_{filter_type}.log"
+    shell:  
+        "python workflow/scripts/table_2_krona.py -t {input} -o " + results_dir + "/krona_{wildcards.filter_type}"
+
+rule plots:
+    input:
+        results_dir+"/formated_emu_table_combined_counts_unfiltered.tsv"
+    output:
+        report(
+            expand(
+                results_dir+"/{{filter_type}}/{{graph_type}}_{{tax_level}}.svg"),
+            category=lambda wildcards: 'Top taxa plots {filter_type}'.format(filter_type=wildcards.filter_type),
+            subcategory=lambda wildcards: '{tax_level}'.format(tax_level=wildcards.tax_level).capitalize(),
+            labels=dict_labels
+        )
+
     log: 
-        "results/logs/plots"
+        results_dir+"/logs/plots/{filter_type}_{graph_type}_{tax_level}"
     params:
         max_num_taxa = config["plots"]["max_num_taxa"],
         min_num_reads = config["plots"]["min_num_reads"]
-    shell: 
+    shell:
         """
         python workflow/scripts/plots.py -t {input} -d results -n {params.max_num_taxa} -r {params.min_num_reads} &> {log}
         """
 
+onstart:
+    input_files = [f for f in os.listdir(input_dir) if (os.path.isfile(os.path.join(input_dir, f)) and f.endswith('fastq'))]
+    input_names = [x[:-6] for x in input_files]
+    preqc_files = [f for f in os.listdir(results_dir+"/preqc") if os.path.isfile(os.path.join(results_dir+"/preqc", f))]
+    preqc_names = [x[:-12] for x in preqc_files]
+    postqc_files = [f for f in os.listdir(results_dir+"/postqc") if (os.path.isfile(os.path.join(results_dir+"/postqc", f)) and f.endswith('html'))]
+    postqc_names = [x[:-12] for x in postqc_files]
+    krona_filtered_files = [f for f in os.listdir(results_dir+"/krona_filtered") if (os.path.isfile(os.path.join(results_dir+"/krona_filtered", f)) and f.endswith('txt'))]
+    krona_filtered_names = [x[:-4] for x in krona_filtered_files]
+    krona_unfiltered_files = [f for f in os.listdir(results_dir+"/krona_unfiltered") if (os.path.isfile(os.path.join(results_dir+"/krona_unfiltered", f)) and f.endswith('txt'))]
+    krona_unfiltered_names = [x[:-4] for x in krona_filtered_files]
+    results_files = [f for f in os.listdir(results_dir) if (os.path.isfile(os.path.join(results_dir, f)) and f.endswith('txt'))]
+    results_names = [x[:-4] for x in results_files]
+    abundances_files = [f for f in os.listdir(abundances_dir) if os.path.isfile(os.path.join(abundances_dir, f))]
+    abundances_names = [x[:-18] for x in abundances_files]
+    temp_files = [f for f in os.listdir(results_dir+"/temp") if (os.path.isfile(os.path.join(results_dir+"/temp", f)) and f.endswith('counts_0.csv'))]
+    temp_names = [x[:-13] for x in temp_files]
+    for candidate in list(set(preqc_names) - set(input_names)):
+        try: 
+            os.remove(results_dir+"/preqc/"+candidate+"_fastqc.html")
+        except OSError:
+            pass
+        try: 
+            os.remove(results_dir+"/preqc/"+candidate+"_fastqc.zip")
+        except OSError:
+            pass
+    for candidate in list(set(postqc_names) - set(input_names)):
+        try: 
+            os.remove(results_dir+"/postqc/"+candidate+"_fastqc.html")
+        except OSError:
+            pass
+        try: 
+            os.remove(results_dir+"/postqc/"+candidate+"_fastqc.zip")
+        except OSError:
+            pass
+        try: 
+            shutil.rmtree(results_dir+"/postqc/"+candidate+"_results_nanobird",ignore_errors=True)
+        except OSError:
+            print(OSError)
+
+    for candidate in list(set(krona_filtered_names) - set(input_names)):
+        try: 
+            os.remove(results_dir+"/krona_filtered/"+candidate+".txt")
+        except OSError:
+            pass
+    for candidate in list(set(krona_unfiltered_names) - set(input_names)):
+        try: 
+            os.remove(results_dir+"/krona_unfiltered/"+candidate+".txt")
+        except OSError:
+            pass
+    for candidate in list(set(abundances_names) - set(input_names)):
+        try: 
+            os.remove(abundances_dir+"/"+candidate+"_rel-abundance.tsv")
+        except OSError:
+            pass
+
+    if (sum(len(files) for _, _, files in os.walk(input_dir)) == 1):
+        heatmap_files_filt = [f for f in os.listdir(results_dir+"/krona_filtered") if (os.path.isfile(os.path.join(results_dir+"/krona_filtered", f)) and f.startswith('clustered'))]
+        for candidate in heatmap_files_filt:
+            try: 
+                os.remove(results_dir+"/filtered/"+candidate)
+            except OSError:
+                pass
+        heatmap_files_unfilt = [f for f in os.listdir(results_dir+"/krona_unfiltered") if (os.path.isfile(os.path.join(results_dir+"/krona_unfiltered", f)) and f.startswith('clustered'))]
+        for candidate in heatmap_files_unfilt:
+            try: 
+                os.remove(results_dir+"/unfiltered/"+candidate)
+            except OSError:
+                pass
+
+    for candidate in list(set(temp_names) - set(input_names)):
+        try: 
+            os.remove(results_dir+"/temp/"+candidate+"_counts_0.csv")
+        except OSError:
+            pass
+        try: 
+            os.remove(results_dir+"/temp/"+candidate+"_counts_1.csv")
+        except OSError:
+            pass
+        try: 
+            os.remove(results_dir+"/temp/"+candidate+"_counts_2.csv")
+        except OSError:
+            pass
+        try: 
+            os.remove(results_dir+"/temp/"+candidate+"_counts_3.csv")
+        except OSError:
+            pass
+        try: 
+            os.remove(results_dir+"/temp/"+candidate+"_read_counts.txt")
+        except OSError:
+            pass
 onsuccess:
     from snakemake.report import auto_report
     auto_report(workflow.persistence.dag, "workflow/report/report.html")
