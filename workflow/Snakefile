@@ -5,8 +5,8 @@ report: "report/workflow.rst"
 
 configfile: "config/config.yaml"
 input_dir = config["folders"]["input"]
-results_dir = config["folders"]["results"]
-abundances_dir = config["folders"]["abundances"]
+intermediate_dir = config["folders"]["intermediate"]
+output_dir = config["folders"]["output"]
 
 samples, = glob_wildcards(input_dir+"/{id}.fastq")
 filter_type = ["filtered", "unfiltered"]
@@ -39,12 +39,12 @@ def dict_labels_filter_type(wildcards):
 
 rule all:
     input:
-        results_dir+"/read_counts.xlsx",
-        expand(results_dir+"/preqc/{id}_fastqc.html", id=samples),
-        expand(results_dir+"/postqc/{id}_fastqc.html", id=samples),
-        expand(results_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", filter_type=filter_type),
-        expand(results_dir+"/krona_{filter_type}/krona_composition_samples.html", filter_type=filter_type),
-        expand(results_dir+"/{filter_type}/{graph_type}_{tax_level}.svg", 
+        intermediate_dir+"/read_counts.xlsx",
+        expand(intermediate_dir+"/preqc/{id}_fastqc.html", id=samples),
+        expand(intermediate_dir+"/postqc/{id}_fastqc.html", id=samples),
+        expand(intermediate_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", filter_type=filter_type),
+        expand(intermediate_dir+"/krona_{filter_type}/krona_composition_samples.html", filter_type=filter_type),
+        expand(intermediate_dir+"/{filter_type}/{graph_type}_{tax_level}.svg", 
                 tax_level=tax_level,
                 filter_type=filter_type,
                 graph_type=graph_type),
@@ -66,7 +66,7 @@ rule initial_read_counts:
     input:
         input_dir+"/{id}.fastq"
     output: 
-        results_dir+"/temp/{id}_counts_0.csv"
+        intermediate_dir+"/temp/{id}_counts_0.csv"
     shell:
         "./workflow/scripts-sm/count_fastq.sh {input} {output}"
 
@@ -74,25 +74,25 @@ rule fastqc_pre:
     input: 
         input_dir+"/{id}.fastq"
     output: 
-        report(results_dir+"/preqc/{id}_fastqc.html", category="Before QC",
+        report(intermediate_dir+"/preqc/{id}_fastqc.html", category="Before QC",
         labels = {
             "Sample" : "{id}"
         }),
-        temp(results_dir+"/preqc/{id}_fastqc.zip")
+        temp(intermediate_dir+"/preqc/{id}_fastqc.zip")
     log:
-        results_dir+"/logs/preqc/{id}_fastqc.log"
+        intermediate_dir+"/logs/preqc/{id}_fastqc.log"
     threads: 
         workflow.cores
     shell:
-        "workflow/scripts/fastqc_v0.11.7/fastqc -o results/preqc -t {workflow.cores} {input} &> {log}"
+        "workflow/scripts/fastqc_v0.11.7/fastqc -o "+intermediate_dir+"/preqc -t {workflow.cores} {input} &> {log}"
 
 rule porechop:
     input: 
         input_dir+"/{id}.fastq"
     output:
-        temp(results_dir+"/postqc/{id}.porechop.fastq")
+        temp(intermediate_dir+"/postqc/{id}.porechop.fastq")
     log:
-        results_dir+"/logs/postqc/{id}_porechop.log"
+        intermediate_dir+"/logs/postqc/{id}_porechop.log"
     threads: 
         workflow.cores
     shell:
@@ -100,17 +100,17 @@ rule porechop:
 
 rule porechop_read_counts:
     input:
-        results_dir+"/postqc/{id}.porechop.fastq"
+        intermediate_dir+"/postqc/{id}.porechop.fastq"
     output: 
-        results_dir+"/temp/{id}_counts_1.csv"
+        intermediate_dir+"/temp/{id}_counts_1.csv"
     shell:
         "./workflow/scripts-sm/count_fastq.sh {input} {output}"
         
 rule nanofilt:
     input:
-        results_dir+"/postqc/{id}.porechop.fastq"
+        intermediate_dir+"/postqc/{id}.porechop.fastq"
     output:
-        temp(results_dir+"/postqc/{id}.porechop.nanofilt.fastq")
+        temp(intermediate_dir+"/postqc/{id}.porechop.nanofilt.fastq")
     params:
         min_len = config["nanofilt"]["min_len"],
         max_len = config["nanofilt"]["max_len"],
@@ -122,7 +122,7 @@ rule nanofilt:
     wildcard_constraints:
         id='\w+'
     log:
-        results_dir+"/logs/postqc/{id}_nanofilt.log"
+        intermediate_dir+"/logs/postqc/{id}_nanofilt.log"
     threads: 
         workflow.cores
     run:
@@ -142,19 +142,19 @@ rule nanofilt:
 
 rule nanofilt_read_counts:
     input:
-        results_dir+"/postqc/{id}.porechop.nanofilt.fastq"
+        intermediate_dir+"/postqc/{id}.porechop.nanofilt.fastq"
     output: 
-        results_dir+"/temp/{id}_counts_2.csv"
+        intermediate_dir+"/temp/{id}_counts_2.csv"
     shell:
         "./workflow/scripts-sm/count_fastq.sh {input} {output}"
 
 rule minimap:
     input:
-        results_dir+"/postqc/{id}.porechop.nanofilt.fastq"
+        intermediate_dir+"/postqc/{id}.porechop.nanofilt.fastq"
     output:
-        temp(results_dir+"/postqc/{id}.porechop.nanofilt.paf")
+        temp(intermediate_dir+"/postqc/{id}.porechop.nanofilt.paf")
     log:
-        results_dir+"/logs/postqc/{id}_minimap.log"
+        intermediate_dir+"/logs/postqc/{id}_minimap.log"
     threads: 
         workflow.cores
     shell: 
@@ -162,13 +162,13 @@ rule minimap:
 
 rule yacrd:
     input:
-        results_dir+"/postqc/{id}.porechop.nanofilt.paf",
-        results_dir+"/postqc/{id}.porechop.nanofilt.fastq"
+        intermediate_dir+"/postqc/{id}.porechop.nanofilt.paf",
+        intermediate_dir+"/postqc/{id}.porechop.nanofilt.fastq"
     output:
-        temp(results_dir+"/postqc/{id}.yacrd"),
-        results_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
+        temp(intermediate_dir+"/postqc/{id}.yacrd"),
+        intermediate_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
     log:
-        results_dir+"/logs/postqc/{id}_yacrd"
+        intermediate_dir+"/logs/postqc/{id}_yacrd"
     wildcard_constraints:
         id='\w+'
     threads: 
@@ -178,17 +178,17 @@ rule yacrd:
 
 rule yacrd_read_counts:
     input:
-        results_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
+        intermediate_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
     output: 
-        results_dir+"/temp/{id}_counts_3.csv"
+        intermediate_dir+"/temp/{id}_counts_3.csv"
     shell:
         "./workflow/scripts-sm/count_fastq.sh {input} {output}"
 
 rule aggregate_count_stats:
     input: 
-        expand(results_dir+"/temp/{id}_counts_{index}.csv", id=samples, index=[0,1,2,3])
+        expand(intermediate_dir+"/temp/{id}_counts_{index}.csv", id=samples, index=[0,1,2,3])
     output:
-        results_dir+"/temp/{id}_read_counts.txt"
+        intermediate_dir+"/temp/{id}_read_counts.txt"
     run:
         sorted_input = sorted({input})
         current_sample = ""
@@ -197,14 +197,14 @@ rule aggregate_count_stats:
                 file_name = str(file2)
                 if file_name.endswith("_counts_0.csv"):
                     sample_name = file_name.rstrip("_counts_0.csv")
-                    sample_name = sample_name.lstrip(results_dir+"/temp/")
+                    sample_name = sample_name.lstrip(intermediate_dir+"/temp/")
                     current_sample = sample_name
-                    with open(results_dir+"/temp/"+sample_name+"_read_counts.txt", "w") as new_file:
+                    with open(intermediate_dir+"/temp/"+sample_name+"_read_counts.txt", "w") as new_file:
                         with open(file_name, "r") as og_file:
                             for line in og_file:
                                 new_file.write(line)
                 elif file_name.endswith(".csv"):
-                    with open(results_dir+"/temp/"+current_sample+"_read_counts.txt", "a") as current_file:
+                    with open(intermediate_dir+"/temp/"+current_sample+"_read_counts.txt", "a") as current_file:
                         with open(file_name, "r") as og_file:
                             for line in og_file:
                                 current_file.write(line)
@@ -212,196 +212,206 @@ rule aggregate_count_stats:
         
 rule fastqc_post:
     input: 
-        results_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
+        intermediate_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
     output: 
-        report(results_dir+"/postqc/{id}_fastqc.html", category="After QC",
+        report(intermediate_dir+"/postqc/{id}_fastqc.html", category="After QC",
         labels = {
             "Sample" : "{id}"
         }),
-        temp(results_dir+"/postqc/{id}_fastqc.zip")
+        temp(intermediate_dir+"/postqc/{id}_fastqc.zip")
     log:
-        results_dir+"/logs/postqc/{id}_fastqc.log"
+        intermediate_dir+"/logs/postqc/{id}_fastqc.log"
     threads: 
         workflow.cores
     shell:
-        "workflow/scripts/fastqc_v0.11.7/fastqc -o results/postqc -t {workflow.cores} {input} &> {log}"
+        "workflow/scripts/fastqc_v0.11.7/fastqc -o "+intermediate_dir+"/postqc -t {workflow.cores} {input} &> {log}"
 
 rule emu:
     input:
-        results_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
+        intermediate_dir+"/postqc/{id}_results_nanobird/{id}.fastq"
     output:
-        "rel-abundances/{id}_rel-abundance.tsv"
+        intermediate_dir+"/abundances/{id}_rel-abundance.tsv"
     log:
-        results_dir+"/logs/emu/{id}_emu"
+        intermediate_dir+"/logs/emu/{id}_emu"
     params:
         db = config["emu"]["db"]
     threads: 
         workflow.cores
     shell:
-        "emu abundance --keep-counts --type map-ont --db resources/databases/{params.db} --output-dir rel-abundances --threads {workflow.cores} {input} &> {log}"
+        "emu abundance --keep-counts --type map-ont --db resources/databases/{params.db} --output-dir "+intermediate_dir+"/abundances --threads {workflow.cores} {input} &> {log}"
 
 rule combine_outputs:
     input:
-        expand("rel-abundances/{id}_rel-abundance.tsv", id=samples)
+        expand(intermediate_dir+"/abundances/{id}_rel-abundance.tsv", id=samples)
     output:
-        results_dir+"/emu-combined-tax_id-counts.tsv"
+        intermediate_dir+"/emu-combined-tax_id-counts.tsv"
     log:
-        results_dir+"/logs/combine_outputs.log"
+        intermediate_dir+"/logs/combine_outputs.log"
     shell:
         """
-        emu combine-outputs rel-abundances tax_id --counts > {log}
-        mv rel-abundances/emu-combined-tax_id-counts.tsv results/emu-combined-tax_id-counts.tsv
+        emu combine-outputs """+intermediate_dir+"""/abundances tax_id --counts > {log}
+        mv """+intermediate_dir+"""/abundances/emu-combined-tax_id-counts.tsv """+intermediate_dir+"""/emu-combined-tax_id-counts.tsv
         """
 
 rule filter_count_tables:
     input:
-        results_dir+"/emu-combined-tax_id-counts.tsv"
+        intermediate_dir+"/emu-combined-tax_id-counts.tsv"
     output:
-        report(results_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", category="Tables", labels=dict_labels_filter_type)
+        report(intermediate_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", category="Tables", labels=dict_labels_filter_type)
     log:
-        results_dir+"/logs/{filter_type}_count_tables.log"
+        intermediate_dir+"/logs/{filter_type}_count_tables.log"
     shell:  
-        "python workflow/scripts/format_count_tables.py -t {input} -o results"
+        "python workflow/scripts/format_count_tables.py -t {input} -o "+intermediate_dir
 
 rule complete_count_stats:
     input:
-        results_dir+"/formated_emu_table_combined_counts_unfiltered.tsv",
-        expand(results_dir+"/temp/{id}_read_counts.txt", id=samples)
+        intermediate_dir+"/formated_emu_table_combined_counts_filtered.tsv",
+        expand(intermediate_dir+"/temp/{id}_read_counts.txt", id=samples)
     output: 
-        report(results_dir+"/read_counts.xlsx", category="Tables", labels={
+        report(intermediate_dir+"/read_counts.xlsx", category="Tables", labels={
             "Type": "Stats"
         })
     shell:
         """
-        python workflow/scripts/write_global_stats.py -d results/temp -t {input[0]}
-        mv results/temp/read_counts.xlsx results/read_counts.xlsx
+        python workflow/scripts/write_global_stats.py -d """+intermediate_dir+"""/temp -t {input[0]}
+        mv """+intermediate_dir+"""/temp/read_counts.xlsx """+intermediate_dir+"""/read_counts.xlsx
         """
 rule kronas:
     input: 
-        results_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv"
+        intermediate_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv"
     output:
-        report(results_dir+"/krona_{filter_type}/krona_composition_samples.html",
+        report(intermediate_dir+"/krona_{filter_type}/krona_composition_samples.html",
             category="Kronas",
             labels=dict_labels_filter_type
         )
     log:
-        results_dir+"/logs/kronas_{filter_type}.log"
+        intermediate_dir+"/logs/kronas_{filter_type}.log"
     shell:  
-        "python workflow/scripts/table_2_krona.py -t {input} -o " + results_dir + "/krona_{wildcards.filter_type}"
+        "python workflow/scripts/table_2_krona.py -t {input} -o " + intermediate_dir + "/krona_{wildcards.filter_type}"
 
 rule plots:
     input:
-        results_dir+"/formated_emu_table_combined_counts_unfiltered.tsv"
+        intermediate_dir+"/formated_emu_table_combined_counts_unfiltered.tsv"
     output:
         report(
             expand(
-                results_dir+"/{{filter_type}}/{{graph_type}}_{{tax_level}}.svg"),
+                intermediate_dir+"/{{filter_type}}/{{graph_type}}_{{tax_level}}.svg"),
             category=lambda wildcards: 'Top taxa plots {filter_type}'.format(filter_type=wildcards.filter_type),
             subcategory=lambda wildcards: '{tax_level}'.format(tax_level=wildcards.tax_level).capitalize(),
             labels=dict_labels
         )
 
     log: 
-        results_dir+"/logs/plots/{filter_type}_{graph_type}_{tax_level}"
+        intermediate_dir+"/logs/plots/{filter_type}_{graph_type}_{tax_level}"
     params:
         max_num_taxa = config["plots"]["max_num_taxa"],
         min_num_reads = config["plots"]["min_num_reads"]
     shell:
         """
-        python workflow/scripts/plots.py -t {input} -d results -n {params.max_num_taxa} -r {params.min_num_reads} &> {log}
+        python workflow/scripts/plots.py -t {input} -d """+intermediate_dir+""" -n {params.max_num_taxa} -r {params.min_num_reads} &> {log}
         """
 
 onstart:
     input_files = [f for f in os.listdir(input_dir) if (os.path.isfile(os.path.join(input_dir, f)) and f.endswith('fastq'))]
     input_names = [x[:-6] for x in input_files]
-    preqc_files = [f for f in os.listdir(results_dir+"/preqc") if os.path.isfile(os.path.join(results_dir+"/preqc", f))]
-    preqc_names = [x[:-12] for x in preqc_files]
-    postqc_files = [f for f in os.listdir(results_dir+"/postqc") if (os.path.isfile(os.path.join(results_dir+"/postqc", f)) and f.endswith('html'))]
-    postqc_names = [x[:-12] for x in postqc_files]
-    krona_filtered_files = [f for f in os.listdir(results_dir+"/krona_filtered") if (os.path.isfile(os.path.join(results_dir+"/krona_filtered", f)) and f.endswith('txt'))]
-    krona_filtered_names = [x[:-4] for x in krona_filtered_files]
-    krona_unfiltered_files = [f for f in os.listdir(results_dir+"/krona_unfiltered") if (os.path.isfile(os.path.join(results_dir+"/krona_unfiltered", f)) and f.endswith('txt'))]
-    krona_unfiltered_names = [x[:-4] for x in krona_filtered_files]
-    results_files = [f for f in os.listdir(results_dir) if (os.path.isfile(os.path.join(results_dir, f)) and f.endswith('txt'))]
-    results_names = [x[:-4] for x in results_files]
-    abundances_files = [f for f in os.listdir(abundances_dir) if os.path.isfile(os.path.join(abundances_dir, f))]
-    abundances_names = [x[:-18] for x in abundances_files]
-    temp_files = [f for f in os.listdir(results_dir+"/temp") if (os.path.isfile(os.path.join(results_dir+"/temp", f)) and f.endswith('counts_0.csv'))]
-    temp_names = [x[:-13] for x in temp_files]
-    for candidate in list(set(preqc_names) - set(input_names)):
-        try: 
-            os.remove(results_dir+"/preqc/"+candidate+"_fastqc.html")
-        except OSError:
-            pass
-        try: 
-            os.remove(results_dir+"/preqc/"+candidate+"_fastqc.zip")
-        except OSError:
-            pass
-    for candidate in list(set(postqc_names) - set(input_names)):
-        try: 
-            os.remove(results_dir+"/postqc/"+candidate+"_fastqc.html")
-        except OSError:
-            pass
-        try: 
-            os.remove(results_dir+"/postqc/"+candidate+"_fastqc.zip")
-        except OSError:
-            pass
-        try: 
-            shutil.rmtree(results_dir+"/postqc/"+candidate+"_results_nanobird",ignore_errors=True)
-        except OSError:
-            print(OSError)
-
-    for candidate in list(set(krona_filtered_names) - set(input_names)):
-        try: 
-            os.remove(results_dir+"/krona_filtered/"+candidate+".txt")
-        except OSError:
-            pass
-    for candidate in list(set(krona_unfiltered_names) - set(input_names)):
-        try: 
-            os.remove(results_dir+"/krona_unfiltered/"+candidate+".txt")
-        except OSError:
-            pass
-    for candidate in list(set(abundances_names) - set(input_names)):
-        try: 
-            os.remove(abundances_dir+"/"+candidate+"_rel-abundance.tsv")
-        except OSError:
-            pass
-
+    if os.path.exists(intermediate_dir+"/preqc"):
+        preqc_files = [f for f in os.listdir(intermediate_dir+"/preqc") if os.path.isfile(os.path.join(intermediate_dir+"/preqc", f))]
+        preqc_names = [x[:-12] for x in preqc_files]
+        for candidate in list(set(preqc_names) - set(input_names)):
+            try: 
+                os.remove(intermediate_dir+"/preqc/"+candidate+"_fastqc.html")
+            except OSError:
+                pass
+            try: 
+                os.remove(intermediate_dir+"/preqc/"+candidate+"_fastqc.zip")
+            except OSError:
+                pass
+    if os.path.exists(intermediate_dir+"/postqc"):
+        postqc_files = [f for f in os.listdir(intermediate_dir+"/postqc") if (os.path.isfile(os.path.join(intermediate_dir+"/postqc", f)) and f.endswith('html'))]
+        postqc_names = [x[:-12] for x in postqc_files]
+        for candidate in list(set(postqc_names) - set(input_names)):
+            try: 
+                os.remove(intermediate_dir+"/postqc/"+candidate+"_fastqc.html")
+            except OSError:
+                pass
+            try: 
+                os.remove(intermediate_dir+"/postqc/"+candidate+"_fastqc.zip")
+            except OSError:
+                pass
+            try: 
+                shutil.rmtree(intermediate_dir+"/postqc/"+candidate+"_results_nanobird",ignore_errors=True)
+            except OSError:
+                print(OSError)
+    if os.path.exists(intermediate_dir+"/krona_filtered"):
+        krona_filtered_files = [f for f in os.listdir(intermediate_dir+"/krona_filtered") if (os.path.isfile(os.path.join(intermediate_dir+"/krona_filtered", f)) and f.endswith('txt'))]
+        krona_filtered_names = [x[:-4] for x in krona_filtered_files]
+        for candidate in list(set(krona_filtered_names) - set(input_names)):
+            try: 
+                os.remove(intermediate_dir+"/krona_filtered/"+candidate+".txt")
+            except OSError:
+                pass
+    if os.path.exists(intermediate_dir+"/krona_unfiltered"):
+        krona_unfiltered_files = [f for f in os.listdir(intermediate_dir+"/krona_unfiltered") if (os.path.isfile(os.path.join(intermediate_dir+"/krona_unfiltered", f)) and f.endswith('txt'))]
+        krona_unfiltered_names = [x[:-4] for x in krona_filtered_files]
+        for candidate in list(set(krona_unfiltered_names) - set(input_names)):
+            try: 
+                os.remove(intermediate_dir+"/krona_unfiltered/"+candidate+".txt")
+            except OSError:
+                pass
+        
+    if os.path.exists(intermediate_dir):
+        results_files = [f for f in os.listdir(intermediate_dir) if (os.path.isfile(os.path.join(intermediate_dir, f)) and f.endswith('txt'))]
+        results_names = [x[:-4] for x in results_files]
+    if os.path.exists(intermediate_dir+"/abundances"):
+        abundances_files = [f for f in os.listdir(intermediate_dir+"/abundances") if os.path.isfile(os.path.join(intermediate_dir+"/abundances", f))]
+        abundances_names = [x[:-18] for x in abundances_files]
+        for candidate in list(set(abundances_names) - set(input_names)):
+            try: 
+                os.remove(intermediate_dir+"/abundances"+"/"+candidate+"_rel-abundance.tsv")
+            except OSError:
+                pass
+    if os.path.exists(intermediate_dir+"/temp"):
+        temp_files = [f for f in os.listdir(intermediate_dir+"/temp") if (os.path.isfile(os.path.join(intermediate_dir+"/temp", f)) and f.endswith('counts_0.csv'))]
+        temp_names = [x[:-13] for x in temp_files]
+        for candidate in list(set(temp_names) - set(input_names)):
+            try: 
+                os.remove(intermediate_dir+"/temp/"+candidate+"_counts_0.csv")
+            except OSError:
+                pass
+            try: 
+                os.remove(intermediate_dir+"/temp/"+candidate+"_counts_1.csv")
+            except OSError:
+                pass
+            try: 
+                os.remove(intermediate_dir+"/temp/"+candidate+"_counts_2.csv")
+            except OSError:
+                pass
+            try: 
+                os.remove(intermediate_dir+"/temp/"+candidate+"_counts_3.csv")
+            except OSError:
+                pass
+            try: 
+                os.remove(intermediate_dir+"/temp/"+candidate+"_read_counts.txt")
+            except OSError:
+                pass
+    
     if (sum(len(files) for _, _, files in os.walk(input_dir)) == 1):
-        heatmap_files_filt = [f for f in os.listdir(results_dir+"/krona_filtered") if (os.path.isfile(os.path.join(results_dir+"/krona_filtered", f)) and f.startswith('clustered'))]
-        for candidate in heatmap_files_filt:
-            try: 
-                os.remove(results_dir+"/filtered/"+candidate)
-            except OSError:
-                pass
-        heatmap_files_unfilt = [f for f in os.listdir(results_dir+"/krona_unfiltered") if (os.path.isfile(os.path.join(results_dir+"/krona_unfiltered", f)) and f.startswith('clustered'))]
-        for candidate in heatmap_files_unfilt:
-            try: 
-                os.remove(results_dir+"/unfiltered/"+candidate)
-            except OSError:
-                pass
+        if os.path.exists(intermediate_dir+"/filtered"):
+            heatmap_files_filt = [f for f in os.listdir(intermediate_dir+"/filtered") if (os.path.isfile(os.path.join(intermediate_dir+"/filtered", f)) and f.startswith('clustered'))]
+            for candidate in heatmap_files_filt:
+                try: 
+                    os.remove(intermediate_dir+"/filtered/"+candidate)
+                except OSError:
+                    pass
+        if os.path.exists(intermediate_dir+"/unfiltered"):
+            heatmap_files_unfilt = [f for f in os.listdir(intermediate_dir+"/unfiltered") if (os.path.isfile(os.path.join(intermediate_dir+"/unfiltered", f)) and f.startswith('clustered'))]
+            for candidate in heatmap_files_unfilt:
+                try: 
+                    os.remove(intermediate_dir+"/unfiltered/"+candidate)
+                except OSError:
+                    pass
+    os.makedirs(output_dir, exist_ok=True)
 
-    for candidate in list(set(temp_names) - set(input_names)):
-        try: 
-            os.remove(results_dir+"/temp/"+candidate+"_counts_0.csv")
-        except OSError:
-            pass
-        try: 
-            os.remove(results_dir+"/temp/"+candidate+"_counts_1.csv")
-        except OSError:
-            pass
-        try: 
-            os.remove(results_dir+"/temp/"+candidate+"_counts_2.csv")
-        except OSError:
-            pass
-        try: 
-            os.remove(results_dir+"/temp/"+candidate+"_counts_3.csv")
-        except OSError:
-            pass
-        try: 
-            os.remove(results_dir+"/temp/"+candidate+"_read_counts.txt")
-        except OSError:
-            pass
 onsuccess:
-    from snakemake.report import auto_report
-    auto_report(workflow.persistence.dag, "workflow/report/report.html")
+    from snakemake.report import auto_report 
+    auto_report(workflow.persistence.dag, output_dir+"/report.html", stylesheet="workflow/report/custom-stylesheet.css")

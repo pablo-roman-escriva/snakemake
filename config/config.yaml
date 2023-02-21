@@ -1,8 +1,8 @@
 folders:
   input: "input"
-  results: "results"
+  intermediate: "intermediate"
+  output: "output"
   scripts: "workflow/scripts"
-  abundances: "rel-abundances"
 
 nanofilt:
   min_len: 1200 
@@ -15,8 +15,8 @@ nanofilt:
 
 emu:
   db: #"GTDB-r207-SSU-All-Custom"
-      "RDP-Trainset-v18-Custom" 
-      #"SILVA-v138.1-SSU-NR99-Custom"
+       "RDP-Trainset-v18-Custom" 
+      # "SILVA-v138.1-SSU-NR99-Custom"
 
 plots:
   max_num_taxa: 20
