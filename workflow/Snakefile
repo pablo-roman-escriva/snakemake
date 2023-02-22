@@ -10,6 +10,7 @@ output_dir = config["folders"]["output"]
 
 samples, = glob_wildcards(input_dir+"/{id}.fastq")
 filter_type = ["filtered", "unfiltered"]
+tax_type_counts = ["species", "genus"]
 if (sum(len(files) for _, _, files in os.walk(input_dir)) == 1):
     graph_type = ["most_abundant"]
 else: 
@@ -37,12 +38,18 @@ def dict_labels_filter_type(wildcards):
     }
     return my_dict
 
+def dict_labels_filter_tax(wildcards):
+    my_dict = {
+        "Type": wildcards.filter_type.capitalize() + " " + wildcards.tax_type_counts
+    }
+    return my_dict
+
 rule all:
     input:
         intermediate_dir+"/read_counts.xlsx",
         expand(intermediate_dir+"/preqc/{id}_fastqc.html", id=samples),
         expand(intermediate_dir+"/postqc/{id}_fastqc.html", id=samples),
-        expand(intermediate_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", filter_type=filter_type),
+        expand(intermediate_dir+"/counts_{filter_type}_{tax_type_counts}.tsv", filter_type=filter_type, tax_type_counts=tax_type_counts),
         expand(intermediate_dir+"/krona_{filter_type}/krona_composition_samples.html", filter_type=filter_type),
         expand(intermediate_dir+"/{filter_type}/{graph_type}_{tax_level}.svg", 
                 tax_level=tax_level,
@@ -57,7 +64,9 @@ rule all:
         
     wildcard_constraints: 
         graph_type='[a-zA-Z]+_[a-zA-Z]+',
-        tax_level='[a-zA-Z]'
+        tax_level='[a-zA-Z]',
+        filter_type='[a-zA-Z]',
+        tax_type_counts='[a-zA-Z]'
 
     threads: 
         workflow.cores
@@ -257,18 +266,31 @@ rule filter_count_tables:
     input:
         intermediate_dir+"/emu-combined-tax_id-counts.tsv"
     output:
-        report(intermediate_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", category="Tables", labels=dict_labels_filter_type)
+        report(intermediate_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv", category="Tables", subcategory="Count tables", labels=dict_labels_filter_type)
     log:
         intermediate_dir+"/logs/{filter_type}_count_tables.log"
     shell:  
         "python workflow/scripts/format_count_tables.py -t {input} -o "+intermediate_dir
+
+rule relative_count_tables:
+    input:
+        intermediate_dir+"/formated_emu_table_combined_counts_{filter_type}.tsv"
+    output:
+        report(intermediate_dir+"/counts_{filter_type}_{tax_type_counts}.tsv", category="Tables", subcategory="Percentage tables", labels=dict_labels_filter_tax)
+    log:
+        intermediate_dir+"/logs/{filter_type}_{tax_type_counts}_relative_count_tables.log"
+    shell:  
+        """
+        python workflow/scripts-sm/relative_count_tables.py {input}
+        mv """+intermediate_dir+"""/formated_emu_table_combined_counts_{wildcards.filter_type}_{wildcards.tax_type_counts}.tsv """+intermediate_dir+"""/counts_{wildcards.filter_type}_{wildcards.tax_type_counts}.tsv
+        """ 
 
 rule complete_count_stats:
     input:
         intermediate_dir+"/formated_emu_table_combined_counts_filtered.tsv",
         expand(intermediate_dir+"/temp/{id}_read_counts.txt", id=samples)
     output: 
-        report(intermediate_dir+"/read_counts.xlsx", category="Tables", labels={
+        report(intermediate_dir+"/read_counts.xlsx", category="Tables", subcategory="Stats", labels={
             "Type": "Stats"
         })
     shell:
